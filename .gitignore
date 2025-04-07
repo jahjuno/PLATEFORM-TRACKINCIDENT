@@ -1,0 +1,36 @@
+# Environnements virtuels Python
+venv/
+.env
+__pycache__/
+*.pyc
+*.pyo
+
+# Fichiers Flask
+instance/
+*.sqlite3
+
+# Node.js (React)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Build React
+build/
+public/
+
+# Logs
+*.log
+logs/
+*.pid
+*.seed
+*.cover
+
+# IDE / Éditeurs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Dépendances Docker
+docker-compose.override.yml
+.docker/
