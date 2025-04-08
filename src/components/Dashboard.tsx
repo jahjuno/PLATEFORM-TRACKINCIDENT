@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
-import { AlertCircle, Clock, CheckCircle2, XCircle, AlertTriangle, Users, Activity, Timer, Shield } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { AlertCircle, Clock, CheckCircle2, XCircle, AlertTriangle, Users, Activity, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
 import { useIncidents } from '../hooks/useIncidents';
+import { useSpring, animated } from 'react-spring';
+import { useNavigate } from 'react-router-dom';
 import type { Incident } from '../types/incident';
 
 const COLORS = ['#DC2626', '#1E3A8A', '#FBBF24', '#3B82F6', '#6B7280'];
@@ -29,39 +31,125 @@ const STATUS_COLORS = {
   CLOSED: 'bg-gray-500'
 };
 
-const StatCard = ({ title, value, icon: Icon, color, trend }: { 
+const AnimatedStatCard = ({ title, value, icon: Icon, color, trend, onClick }: { 
   title: string; 
   value: string | number; 
   icon: React.ElementType; 
   color: string; 
-  trend?: { value: number; isPositive: boolean } 
-}) => (
-  <div className="bg-white rounded-lg shadow p-6 border-t-4 border-primary-navy">
-    <div className="flex items-center justify-between">
-      <div className="flex items-center">
-        <div className={`rounded-full p-3 ${color}`}>
-          <Icon className="h-6 w-6 text-white" />
+  trend?: { value: number; isPositive: boolean };
+  onClick?: () => void;
+}) => {
+  const props = useSpring({
+    from: { opacity: 0, transform: 'translateY(20px)' },
+    to: { opacity: 1, transform: 'translateY(0)' },
+    config: { tension: 300, friction: 20 }
+  });
+
+  return (
+    <animated.div 
+      style={props} 
+      className="bg-white rounded-lg shadow p-6 border-t-4 border-primary-navy"
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center">
+          <div className={`rounded-full p-3 ${color}`}>
+            <Icon className="h-6 w-6 text-white" />
+          </div>
+          <div className="ml-4">
+            <h3 className="text-sm font-medium text-gray-500">{title}</h3>
+            <p 
+              className="text-2xl font-semibold text-primary-navy cursor-pointer hover:text-primary-navy/80 transition-colors duration-150"
+              onClick={onClick}
+            >
+              {value}
+            </p>
+          </div>
         </div>
-        <div className="ml-4">
-          <h3 className="text-sm font-medium text-gray-500">{title}</h3>
-          <p className="text-2xl font-semibold text-primary-navy">{value}</p>
-        </div>
+        {trend && (
+          <div className={`flex items-center ${trend.isPositive ? 'text-green-600' : 'text-primary-red'}`}>
+            <span className="text-sm font-medium">
+              {trend.isPositive ? '+' : '-'}{Math.abs(trend.value)}%
+            </span>
+          </div>
+        )}
       </div>
-      {trend && (
-        <div className={`flex items-center ${trend.isPositive ? 'text-green-600' : 'text-primary-red'}`}>
-          <span className="text-sm font-medium">
-            {trend.isPositive ? '+' : '-'}{Math.abs(trend.value)}%
-          </span>
+    </animated.div>
+  );
+};
+
+const IncidentStatusList = ({ title, incidents, color, icon: Icon, isOpen, onToggle }) => {
+  const navigate = useNavigate();
+  
+  if (!isOpen) {
+    return null;
+  }
+
+  return (
+    <div className="bg-white rounded-lg shadow animate-fadeIn">
+      <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+        <div className="flex items-center">
+          <div className={`p-2 rounded-full ${color} mr-2`}>
+            <Icon className="h-5 w-5 text-white" />
+          </div>
+          <h3 className="text-lg font-medium text-primary-navy">{title}</h3>
+          <span className="ml-2 text-sm text-gray-500">({incidents.length})</span>
         </div>
-      )}
+        <button 
+          onClick={onToggle}
+          className="p-1 rounded-full hover:bg-gray-100"
+        >
+          <ChevronUp className="h-5 w-5 text-gray-500" />
+        </button>
+      </div>
+      <div className="divide-y divide-gray-200 max-h-[300px] overflow-y-auto">
+        {incidents.map((incident) => (
+          <div
+            key={incident.id}
+            onClick={() => navigate('/incidents', { state: { selectedIncidentId: incident.id } })}
+            className="p-4 hover:bg-gray-50 cursor-pointer transition-colors duration-150"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-medium text-gray-900">{incident.title}</h4>
+                <div className="flex items-center space-x-2 mt-1">
+                  <span className="text-sm text-gray-500">
+                    {format(new Date(incident.created_at), 'dd/MM/yyyy HH:mm')}
+                  </span>
+                  <span className="text-gray-400">•</span>
+                  <span className="text-sm text-gray-500">{incident.ticket_number}</span>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className={`px-2 py-1 rounded text-xs font-medium ${PRIORITY_COLORS[incident.priority]}`}>
+                  {incident.priority}
+                </span>
+                <ChevronRight className="h-5 w-5 text-gray-400" />
+              </div>
+            </div>
+            <p className="mt-1 text-sm text-gray-600 line-clamp-2">{incident.description}</p>
+          </div>
+        ))}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 export function Dashboard() {
-  const { incidents, stats, loading } = useIncidents();
+  const { incidents: allIncidents, stats, loading, error } = useIncidents();
   const [timeRange, setTimeRange] = useState('24h');
   const [selectedPlatform, setSelectedPlatform] = useState('all');
+  const [openLists, setOpenLists] = useState({
+    new: false,
+    inProgress: false,
+    resolved: false
+  });
+
+  const toggleList = (list) => {
+    setOpenLists(prev => ({
+      ...prev,
+      [list]: !prev[list]
+    }));
+  };
 
   if (loading) {
     return (
@@ -79,9 +167,13 @@ export function Dashboard() {
     );
   }
 
-  const platforms = ['all', ...new Set(incidents.map(incident => incident.platform))];
+  const newIncidents = allIncidents.filter(i => i.status === 'NEW');
+  const inProgressIncidents = allIncidents.filter(i => i.status === 'IN_PROGRESS');
+  const resolvedIncidents = allIncidents.filter(i => i.status === 'RESOLVED');
 
-  const trendData = incidents.reduce((acc, incident) => {
+  const platforms = ['all', ...new Set(allIncidents.map(incident => incident.platform))];
+
+  const trendData = allIncidents.reduce((acc, incident) => {
     const date = format(new Date(incident.created_at), 'dd/MM/yyyy');
     const existing = acc.find(item => item.date === date);
     
@@ -118,7 +210,7 @@ export function Dashboard() {
     return data;
   });
 
-  const criticalIncidents = incidents.filter(i => i.priority === 'P0' && i.status !== 'RESOLVED');
+  const criticalIncidents = allIncidents.filter(i => i.priority === 'P0' && i.status !== 'RESOLVED');
 
   return (
     <div className="space-y-6">
@@ -160,29 +252,83 @@ export function Dashboard() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <AnimatedStatCard
+          title="Nouveaux Incidents"
+          value={newIncidents.length}
+          icon={AlertCircle}
+          color="bg-primary-red"
+          trend={{ value: 25, isPositive: false }}
+          onClick={() => toggleList('new')}
+        />
+        <AnimatedStatCard
+          title="En Cours"
+          value={inProgressIncidents.length}
+          icon={Clock}
+          color="bg-primary-yellow"
+          trend={{ value: 10, isPositive: true }}
+          onClick={() => toggleList('inProgress')}
+        />
+        <AnimatedStatCard
+          title="Résolus"
+          value={resolvedIncidents.length}
+          icon={CheckCircle2}
+          color="bg-green-600"
+          trend={{ value: 15, isPositive: true }}
+          onClick={() => toggleList('resolved')}
+        />
+      </div>
+
+      {/* Lists that appear only when clicked */}
+      {openLists.new && (
+        <IncidentStatusList
+          title="Nouveaux Incidents"
+          incidents={newIncidents}
+          color="bg-primary-red"
+          icon={AlertCircle}
+          isOpen={openLists.new}
+          onToggle={() => toggleList('new')}
+        />
+      )}
+
+      {openLists.inProgress && (
+        <IncidentStatusList
+          title="En Cours"
+          incidents={inProgressIncidents}
+          color="bg-primary-yellow"
+          icon={Clock}
+          isOpen={openLists.inProgress}
+          onToggle={() => toggleList('inProgress')}
+        />
+      )}
+
+      {openLists.resolved && (
+        <IncidentStatusList
+          title="Résolus"
+          incidents={resolvedIncidents}
+          color="bg-green-500"
+          icon={CheckCircle2}
+          isOpen={openLists.resolved}
+          onToggle={() => toggleList('resolved')}
+        />
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <AnimatedStatCard
           title="Incidents Critiques"
           value={stats.criticalIncidents}
           icon={AlertTriangle}
           color="bg-primary-red"
           trend={{ value: 50, isPositive: false }}
         />
-        <StatCard
-          title="MTTR"
-          value={`${stats.mttr.toFixed(1)}h`}
-          icon={Timer}
-          color="bg-primary-navy"
-          trend={{ value: 12, isPositive: true }}
-        />
-        <StatCard
+        <AnimatedStatCard
           title="Taux de Résolution"
           value={`${stats.resolutionRate.toFixed(1)}%`}
           icon={CheckCircle2}
           color="bg-green-600"
           trend={{ value: 5, isPositive: true }}
         />
-        <StatCard
+        <AnimatedStatCard
           title="Total Incidents"
           value={stats.totalIncidents}
           icon={Activity}
@@ -276,81 +422,6 @@ export function Dashboard() {
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-primary-navy">Performance des Équipes</h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Équipe</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">MTTR</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Incidents</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Résolution</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {stats.teamStats.map((team) => (
-                <tr key={team.name}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-primary-navy">{team.name}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{team.mttr.toFixed(1)}h</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{team.incidents}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="w-full bg-gray-200 rounded-full h-2.5">
-                        <div 
-                          className="bg-primary-navy h-2.5 rounded-full" 
-                          style={{ width: `${team.resolutionRate}%` }}
-                        ></div>
-                      </div>
-                      <span className="ml-2 text-sm text-gray-500">{team.resolutionRate.toFixed(1)}%</span>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-lg shadow">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-primary-navy">Incidents Récents</h3>
-        </div>
-        <div className="flow-root">
-          <ul className="divide-y divide-gray-200">
-            {stats.recentIncidents.map((incident) => (
-              <li key={incident.id} className="p-6">
-                <div className="flex items-center space-x-4">
-                  <div className={`flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center ${STATUS_COLORS[incident.status]}`}>
-                    {incident.status === 'NEW' && <AlertCircle className="h-6 w-6 text-white" />}
-                    {incident.status === 'IN_PROGRESS' && <Clock className="h-6 w-6 text-white" />}
-                    {incident.status === 'RESOLVED' && <CheckCircle2 className="h-6 w-6 text-white" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-primary-navy truncate">
-                      {incident.title}
-                    </p>
-                    <p className="text-sm text-gray-500 truncate">
-                      {incident.platform} - {incident.responsible_team}
-                    </p>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${PRIORITY_COLORS[incident.priority]}`}>
-                      {incident.priority}
-                    </span>
-                    <span className="text-sm text-gray-500">
-                      {format(new Date(incident.created_at), 'dd/MM/yyyy HH:mm')}
-                    </span>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
         </div>
       </div>
     </div>

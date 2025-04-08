@@ -5,13 +5,11 @@ import type { Incident } from '../types/incident';
 export interface IncidentStats {
   totalIncidents: number;
   criticalIncidents: number;
-  mttr: number;
   resolutionRate: number;
   priorityDistribution: { priority: string; count: number }[];
   statusDistribution: { status: string; count: number }[];
   teamStats: {
     name: string;
-    mttr: number;
     incidents: number;
     resolutionRate: number;
   }[];
@@ -65,7 +63,6 @@ export function useIncidents() {
       setStats({
         totalIncidents: 0,
         criticalIncidents: 0,
-        mttr: 0,
         resolutionRate: 0,
         priorityDistribution: [],
         statusDistribution: [],
@@ -78,12 +75,6 @@ export function useIncidents() {
     const criticalIncidents = incidents.filter(i => i.priority === 'P0' && i.status !== 'CLOSED').length;
     
     const resolvedIncidents = incidents.filter(i => i.resolved_at);
-    const totalResolutionTime = resolvedIncidents.reduce((acc, inc) => {
-      const resolutionTime = new Date(inc.resolved_at!).getTime() - new Date(inc.created_at).getTime();
-      return acc + resolutionTime;
-    }, 0);
-    const mttr = resolvedIncidents.length ? (totalResolutionTime / resolvedIncidents.length) / (1000 * 60 * 60) : 0;
-
     const resolutionRate = incidents.length ? (resolvedIncidents.length / incidents.length) * 100 : 0;
 
     const priorityDistribution = ['P0', 'P1', 'P2', 'P3', 'P4'].map(priority => ({
@@ -100,15 +91,9 @@ export function useIncidents() {
     const teamStats = teams.map(team => {
       const teamIncidents = incidents.filter(i => i.intervening_team === team);
       const resolvedTeamIncidents = teamIncidents.filter(i => i.resolved_at);
-      const teamMttr = resolvedTeamIncidents.length ? 
-        resolvedTeamIncidents.reduce((acc, inc) => {
-          const resolutionTime = new Date(inc.resolved_at!).getTime() - new Date(inc.created_at).getTime();
-          return acc + resolutionTime;
-        }, 0) / (resolvedTeamIncidents.length * 1000 * 60 * 60) : 0;
 
       return {
         name: team,
-        mttr: teamMttr,
         incidents: teamIncidents.length,
         resolutionRate: teamIncidents.length ? (resolvedTeamIncidents.length / teamIncidents.length) * 100 : 0
       };
@@ -119,7 +104,6 @@ export function useIncidents() {
     setStats({
       totalIncidents: incidents.length,
       criticalIncidents,
-      mttr,
       resolutionRate,
       priorityDistribution,
       statusDistribution,
@@ -137,6 +121,22 @@ export function useIncidents() {
         .single();
 
       if (error) throw error;
+
+      // Send email notification automatically
+      await fetch('/api/send-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          incident: data,
+          recipients: [
+            data.intervening_person_email,
+            data.responsible_team_email,
+            ...(data.rca_recipients_emails || [])
+          ]
+        })
+      });
 
       setIncidents(prev => [data, ...prev]);
       return data;

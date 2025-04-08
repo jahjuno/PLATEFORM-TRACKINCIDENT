@@ -41,7 +41,7 @@ export default function SplashAnimation() {
           <h1 className="text-6xl font-bold">
             <span className="text-yellow-400">Teams </span>
             <span className="text-primary-navy bg-yellow-400 px-2 rounded">O&M</span>
-            <span className="text-yellow-400"> YAS</span>
+            <span className="text-yellow-400"> xyz</span>
           </h1>
           
           {/* Ligne qui s'étend sous le texte */}

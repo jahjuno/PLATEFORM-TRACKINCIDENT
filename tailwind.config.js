@@ -14,6 +14,7 @@ export default {
         'gradient-x': 'gradient-x 15s ease infinite',
         'gradient-y': 'gradient-y 15s ease infinite',
         'gradient-xy': 'gradient-xy 15s ease infinite',
+        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
       },
       keyframes: {
         'gradient-y': {
@@ -46,6 +47,10 @@ export default {
             'background-position': 'right center'
           }
         }
+      },
+      blur: {
+        '4xl': '72px',
+        '5xl': '96px',
       }
     }
   },
