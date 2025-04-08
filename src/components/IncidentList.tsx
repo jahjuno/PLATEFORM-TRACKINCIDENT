@@ -1,8 +1,226 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { format } from 'date-fns';
-import { AlertCircle, Clock, CheckCircle2, XCircle, ChevronRight, Maximize2, Minimize2, X, Save, Edit } from 'lucide-react';
+import { AlertCircle, Clock, CheckCircle2, XCircle, ChevronRight, Maximize2, Minimize2, X, Save, Edit, FileText } from 'lucide-react';
 import { useIncidents } from '../hooks/useIncidents';
 import type { Incident } from '../types/incident';
+import { PDFDownloadLink, Document, Page, Text, View, StyleSheet, Font } from '@react-pdf/renderer';
+
+// Styles pour le PDF
+const styles = StyleSheet.create({
+  page: {
+    padding: 30,
+    fontFamily: 'Helvetica'
+  },
+  header: {
+    marginBottom: 20,
+    borderBottom: '1px solid #666',
+    paddingBottom: 10
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 10
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 5
+  },
+  ticketNumber: {
+    fontSize: 14,
+    marginBottom: 10
+  },
+  section: {
+    marginBottom: 20
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    paddingBottom: 5,
+    borderBottom: '1px solid #eee'
+  },
+  row: {
+    flexDirection: 'row',
+    marginBottom: 8
+  },
+  label: {
+    width: '40%',
+    fontWeight: 'bold',
+    fontSize: 12
+  },
+  value: {
+    width: '60%',
+    fontSize: 12
+  },
+  bigValue: {
+    fontSize: 12,
+    marginBottom: 10
+  },
+  footer: {
+    position: 'absolute',
+    bottom: 30,
+    left: 30,
+    right: 30,
+    textAlign: 'center',
+    fontSize: 10,
+    color: '#666'
+  },
+  priority: {
+    padding: 5,
+    borderRadius: 4,
+    fontSize: 12,
+    fontWeight: 'bold',
+    textAlign: 'center'
+  }
+});
+
+// Composant pour le PDF
+const IncidentPDF = ({ incident }) => {
+  const formatDate = (dateString) => {
+    return dateString ? format(new Date(dateString), 'dd/MM/yyyy HH:mm') : 'Non spécifié';
+  };
+
+  const calculateDuration = (start, end) => {
+    if (!start) return 'Non spécifié';
+    if (!end) return 'En cours';
+    
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    const diff = Math.abs(endDate - startDate) / 1000;
+    
+    const hours = Math.floor(diff / 3600);
+    const minutes = Math.floor((diff % 3600) / 60);
+    
+    return `${hours}h ${minutes}m`;
+  };
+
+  const getPriorityStyle = (priority) => {
+    switch(priority) {
+      case 'P0': return { backgroundColor: '#ff0000', color: '#ffffff' };
+      case 'P1': return { backgroundColor: '#ff6666', color: '#ffffff' };
+      case 'P2': return { backgroundColor: '#ffcc00', color: '#000000' };
+      case 'P3': return { backgroundColor: '#003366', color: '#ffffff' };
+      case 'P4': return { backgroundColor: '#999999', color: '#ffffff' };
+      default: return { backgroundColor: '#999999', color: '#ffffff' };
+    }
+  };
+
+  const getStatusLabel = (status) => {
+    switch(status) {
+      case 'NEW': return 'Nouveau';
+      case 'IN_PROGRESS': return 'En Attente Fichier RCA';
+      case 'RESOLVED': return 'Résolu';
+      case 'CLOSED': return 'Fermé';
+      default: return status;
+    }
+  };
+
+  return (
+    <Document>
+      <Page size="A4" style={styles.page}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Rapport d'Incident</Text>
+          <Text style={styles.ticketNumber}>Ticket: {incident.ticket_number}</Text>
+          <Text style={styles.subtitle}>Généré le {format(new Date(), 'dd/MM/yyyy à HH:mm')}</Text>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Informations Générales</Text>
+          <View style={styles.row}>
+            <Text style={styles.label}>Titre:</Text>
+            <Text style={styles.value}>{incident.title}</Text>
+          </View>
+          <View style={styles.row}>
+            <Text style={styles.label}>Statut:</Text>
+            <Text style={styles.value}>{getStatusLabel(incident.status)}</Text>
+          </View>
+          <View style={styles.row}>
+            <Text style={styles.label}>Priorité:</Text>
+            <Text style={{...styles.value, ...styles.priority, ...getPriorityStyle(incident.priority)}}>{incident.priority}</Text>
+          </View>
+          <View style={styles.row}>
+            <Text style={styles.label}>Plateforme:</Text>
+            <Text style={styles.value}>{incident.platform || 'Non spécifié'}</Text>
+          </View>
+          <View style={styles.row}>
+            <Text style={styles.label}>Business Impacté:</Text>
+            <Text style={styles.value}>{incident.impacted_business || 'Non spécifié'}</Text>
+          </View>
+          <View style={styles.row}>
+            <Text style={styles.label}>Localisation:</Text>
+            <Text style={styles.value}>{incident.location || 'Non spécifié'}</Text>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Description</Text>
+          <Text style={styles.bigValue}>{incident.description || 'Aucune description disponible'}</Text>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Analyse</Text>
+          <View style={styles.row}>
+            <Text style={styles.label}>Catégorie du Problème:</Text>
+            <Text style={styles.value}>{incident.problem_category || 'Non spécifié'}</Text>
+          </View>
+          <Text style={styles.label}>Cause Racine:</Text>
+          <Text style={styles.bigValue}>{incident.root_cause || 'Non spécifié'}</Text>
+          <Text style={styles.label}>Solution Apportée:</Text>
+          <Text style={styles.bigValue}>{incident.solution_provided || 'Non spécifié'}</Text>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Chronologie</Text>
+          <View style={styles.row}>
+            <Text style={styles.label}>Début:</Text>
+            <Text style={styles.value}>{formatDate(incident.incident_start_time)}</Text>
+          </View>
+          <View style={styles.row}>
+            <Text style={styles.label}>Fin:</Text>
+            <Text style={styles.value}>{formatDate(incident.incident_end_time)}</Text>
+          </View>
+          <View style={styles.row}>
+            <Text style={styles.label}>Durée:</Text>
+            <Text style={styles.value}>{calculateDuration(incident.incident_start_time, incident.incident_end_time)}</Text>
+          </View>
+          <View style={styles.row}>
+            <Text style={styles.label}>Date de création:</Text>
+            <Text style={styles.value}>{formatDate(incident.created_at)}</Text>
+          </View>
+          <View style={styles.row}>
+            <Text style={styles.label}>Date de résolution:</Text>
+            <Text style={styles.value}>{formatDate(incident.resolved_at)}</Text>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Intervenants</Text>
+          <View style={styles.row}>
+            <Text style={styles.label}>Personne Intervenante:</Text>
+            <Text style={styles.value}>{incident.intervening_person || 'Non spécifié'}</Text>
+          </View>
+          <View style={styles.row}>
+            <Text style={styles.label}>Email de l'Équipe:</Text>
+            <Text style={styles.value}>{incident.intervening_team_email || 'Non spécifié'}</Text>
+          </View>
+          <View style={styles.row}>
+            <Text style={styles.label}>Équipe Responsable:</Text>
+            <Text style={styles.value}>{incident.responsible_team || 'Non spécifié'}</Text>
+          </View>
+          <View style={styles.row}>
+            <Text style={styles.label}>Personne Assignée:</Text>
+            <Text style={styles.value}>{incident.assigned_person || 'Non spécifié'}</Text>
+          </View>
+        </View>
+
+        <View style={styles.footer}>
+          <Text>Document généré automatiquement - Confidentiel</Text>
+        </View>
+      </Page>
+    </Document>
+  );
+};
 
 const PRIORITY_COLORS = {
   P0: 'bg-primary-red text-white',
@@ -21,7 +239,7 @@ const STATUS_ICONS = {
 
 const STATUS_OPTIONS = [
   { value: 'NEW', label: 'Nouveau' },
-  { value: 'IN_PROGRESS', label: 'En cours' },
+  { value: 'IN_PROGRESS', label: 'En Attente Fichier RCA' },
   { value: 'RESOLVED', label: 'Résolu' }
 ];
 
@@ -360,6 +578,12 @@ export function IncidentList() {
     setIsEditingSolution(false);
   };
 
+  // Fonction pour générer un nom de fichier PDF basé sur l'incident
+  const generatePdfFilename = (incident) => {
+    if (!incident) return 'incident-report.pdf';
+    return `incident-${incident.ticket_number}-${format(new Date(), 'yyyyMMdd')}.pdf`;
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -451,6 +675,23 @@ export function IncidentList() {
               </span>
             </div>
             <div className="flex items-center space-x-2">
+              {/* Bouton pour générer et télécharger le PDF */}
+              <PDFDownloadLink
+                document={<IncidentPDF incident={selectedIncident} />}
+                fileName={generatePdfFilename(selectedIncident)}
+                className="p-1 hover:text-primary-yellow transition-colors flex items-center bg-white/20 rounded px-2"
+              >
+                {({ blob, url, loading, error }) => 
+                  loading ? 
+                  'Génération...' : 
+                  (
+                    <>
+                      <FileText className="h-4 w-4 mr-1" />
+                      <span className="text-sm">Télécharger PDF</span>
+                    </>
+                  )
+                }
+              </PDFDownloadLink>
               <button
                 onClick={() => setIsMaximized(!isMaximized)}
                 className="p-1 hover:text-primary-yellow transition-colors"

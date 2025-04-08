@@ -59,7 +59,7 @@ const sendEmail = async (data: any) => {
 };
 
 const priorities: Priority[] = ['P0', 'P1', 'P2', 'P3', 'P4'];
-const statuses: Status[] = ['NEW', 'IN_PROGRESS'];
+const statuses: Status[] = ['Nouveau', 'En Attente Fichier RCA'];
 const problemCategories: string[] = [
   'Infrastructure', 
   'Application', 
