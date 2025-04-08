@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-=======
 <img src="https://capsule-render.vercel.app/api?type=waving&height=300&color=gradient&text=TRACK%20INCIDENT%20&fontAlign=50&fontAlignY=43&descAlignY=48&fontSize=40">
 
 
@@ -8,8 +6,6 @@ L'application automatise la génération de rapports, les notifications par e-ma
 
 <img alt="Static Badge" src="https://img.shields.io/badge/track_incident-projet_omit-blue">
 
-
->>>>>>> a40d88576e439e00225bcf271f0c6b3b892a72da
 # Guide Pas à Pas: Système de Gestion des Incidents
 
 ## 1. Prérequis
